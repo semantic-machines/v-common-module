@@ -22,5 +22,4 @@ v_queue = "0.1"
 v_api = { git = "https://github.com/semantic-machines/v-common-api.git", branch = "main" }
 v_onto = { git = "https://github.com/semantic-machines/v-common-onto.git" }
 v_search = { git = "https://github.com/semantic-machines/v-common-search.git" }
-#v_storage = { git = "https://github.com/semantic-machines/v-common-storage.git" }
-v_storage = { path = "../v-common-storage" }
+v_storage = { git = "https://github.com/semantic-machines/v-common-storage.git" }
