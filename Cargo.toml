@@ -19,7 +19,7 @@ uuid = { version = "0.8", features = ["serde", "v4"] }
 
 v_queue = "0.1"
 
-v_api = { git = "https://github.com/semantic-machines/v-common-api.git", branch = "main", version = "0.1.1" }
+v_api = { git = "https://github.com/semantic-machines/v-common-api.git", branch = "main" }
 v_onto = { git = "https://github.com/semantic-machines/v-common-onto.git" }
 v_search = { git = "https://github.com/semantic-machines/v-common-search.git" }
-v_storage = { git = "https://github.com/semantic-machines/v-common-storage.git", version = "0.1.1" }
+v_storage = { git = "https://github.com/semantic-machines/v-common-storage.git" }
