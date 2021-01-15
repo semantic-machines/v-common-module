@@ -1,5 +1,5 @@
 [package]
-name = "v_module"
+name = "v-common-module"
 version = "0.1.5"
 authors = ["itiu <ValeriyBushenev@gmail.com>"]
 edition = "2018"
