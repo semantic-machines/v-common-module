@@ -1,8 +1,10 @@
 [package]
 name = "v_module"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["itiu <ValeriyBushenev@gmail.com>"]
 edition = "2018"
+description = "common part of the veda platform"
+license     = "MIT"
 
 [lib]
 path = "src/lib.rs"
@@ -18,8 +20,8 @@ scan_fmt = "0.1.3"
 uuid = { version = "0.8", features = ["serde", "v4"] }
 
 v_queue = "0.1"
+v_onto = { package = "v-common-onto", version = "0.1.1" }
+v_api = { package = "v-common-api", version = "0.1.2" }
+v_storage = { package = "v-common-storage", version = "0.1.2" }
+v_search = { package = "v-common-search", version = "0.1.2" }
 
-v_api = { git = "https://github.com/semantic-machines/v-common-api.git", branch = "main" }
-v_onto = { git = "https://github.com/semantic-machines/v-common-onto.git" }
-v_search = { git = "https://github.com/semantic-machines/v-common-search.git" }
-v_storage = { git = "https://github.com/semantic-machines/v-common-storage.git" }
