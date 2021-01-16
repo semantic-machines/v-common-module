@@ -41,16 +41,17 @@ pub struct Module {
     is_ready_notify_channel: bool,
     max_timeout_between_batches: Option<u64>,
     min_batch_size_to_cancel_timeout: Option<u32>,
+    subsystem_id: Option<i64>,
 }
 
 impl Default for Module {
     fn default() -> Self {
-        Module::new(StorageMode::ReadOnly, false)
+        Module::new_with_module_id(StorageMode::ReadOnly, false, None)
     }
 }
 
 impl Module {
-    pub fn new(storage_mode: StorageMode, use_remote_storage: bool) -> Self {
+    pub fn new_with_module_id(storage_mode: StorageMode, use_remote_storage: bool, module_id: Option<i64>) -> Self {
         let args: Vec<String> = env::args().collect();
 
         let conf = Ini::load_from_file("veda.properties").expect("fail load veda.properties file");
@@ -134,7 +135,12 @@ impl Module {
             is_ready_notify_channel: false,
             max_timeout_between_batches,
             min_batch_size_to_cancel_timeout,
+            subsystem_id: module_id,
         }
+    }
+
+    pub fn new(storage_mode: StorageMode, use_remote_storage: bool) -> Self {
+        Module::new_with_module_id(storage_mode, use_remote_storage, None)
     }
 }
 
@@ -320,16 +326,29 @@ impl Module {
 
                 let mut queue_element = Individual::new_raw(raw);
                 if parse_raw(&mut queue_element).is_ok() {
-                    match prepare(self, module_info, module_context, &mut queue_element, queue_consumer) {
-                        Err(e) => {
-                            if let PrepareError::Fatal = e {
-                                warn!("found fatal error, stop listen queue");
-                                //process::exit(e as i32);
-                                return;
+                    let mut is_processed = true;
+                    if let Some(assigned_subsystems) = queue_element.get_first_integer("assigned_subsystems") {
+                        if let Some(my_subsystem_id) = self.subsystem_id {
+                            if assigned_subsystems & my_subsystem_id == 0 {
+                                is_processed = false;
                             }
+                        } else {
+                            is_processed = false;
                         }
-                        Ok(b) => {
-                            need_commit = b;
+                    }
+
+                    if is_processed {
+                        match prepare(self, module_info, module_context, &mut queue_element, queue_consumer) {
+                            Err(e) => {
+                                if let PrepareError::Fatal = e {
+                                    warn!("found fatal error, stop listen queue");
+                                    //process::exit(e as i32);
+                                    return;
+                                }
+                            }
+                            Ok(b) => {
+                                need_commit = b;
+                            }
                         }
                     }
                 }
@@ -578,4 +597,3 @@ pub fn get_storage_init_param() -> String {
     }
     tarantool_addr
 }
-
