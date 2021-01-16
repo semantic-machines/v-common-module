@@ -328,12 +328,14 @@ impl Module {
                 if parse_raw(&mut queue_element).is_ok() {
                     let mut is_processed = true;
                     if let Some(assigned_subsystems) = queue_element.get_first_integer("assigned_subsystems") {
-                        if let Some(my_subsystem_id) = self.subsystem_id {
-                            if assigned_subsystems & my_subsystem_id == 0 {
+                        if assigned_subsystems > 0 {
+                            if let Some(my_subsystem_id) = self.subsystem_id {
+                                if assigned_subsystems & my_subsystem_id == 0 {
+                                    is_processed = false;
+                                }
+                            } else {
                                 is_processed = false;
                             }
-                        } else {
-                            is_processed = false;
                         }
                     }
 
