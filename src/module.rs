@@ -95,22 +95,7 @@ impl Module {
         let storage: VStorage;
 
         if !use_remote_storage {
-            let tarantool_addr = if let Some(p) = section.get("tarantool_url") {
-                p.to_owned()
-            } else {
-                warn!("param [tarantool_url] not found in veda.properties");
-                "".to_owned()
-            };
-
-            if !tarantool_addr.is_empty() {
-                info!("tarantool addr={}", &tarantool_addr);
-            }
-
-            if !tarantool_addr.is_empty() {
-                storage = VStorage::new_tt(tarantool_addr, "veda6", "123456");
-            } else {
-                storage = VStorage::new_lmdb("./data", storage_mode);
-            }
+            storage = get_storage_use_prop(storage_mode);
         } else {
             let ro_storage_url = section.get("ro_storage_url").expect("param [ro_storage_url] not found in veda.properties");
             storage = VStorage::new_remote(ro_storage_url);
@@ -584,18 +569,4 @@ pub fn indv_apply_cmd(cmd: &IndvOp, prev_indv: &mut Individual, indv: &mut Indiv
             }
         }
     }
-}
-
-pub fn get_storage_init_param() -> String {
-    let tarantool_addr = if let Some(p) = Module::get_property("tarantool_url") {
-        p
-    } else {
-        warn!("param [tarantool_url] not found in veda.properties");
-        "".to_owned()
-    };
-
-    if !tarantool_addr.is_empty() {
-        info!("tarantool addr={}", &tarantool_addr);
-    }
-    tarantool_addr
 }
