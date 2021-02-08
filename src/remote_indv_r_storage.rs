@@ -1,12 +1,12 @@
+use crate::module::get_storage_use_prop;
 use nng::{Message, Protocol, Socket};
 use std::cell::RefCell;
 use std::str;
 use std::sync::Mutex;
 use uuid::Uuid;
 use v_onto::individual::{Individual, RawObj};
-use v_storage::storage::*;
 use v_storage::remote_storage_client::*;
-use crate::module::get_storage_use_prop;
+use v_storage::storage::*;
 
 lazy_static! {
     pub static ref STORAGE: Mutex<RefCell<StorageROClient>> = Mutex::new(RefCell::new(StorageROClient::default()));

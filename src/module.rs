@@ -41,6 +41,7 @@ pub struct Module {
     is_ready_notify_channel: bool,
     max_timeout_between_batches: Option<u64>,
     min_batch_size_to_cancel_timeout: Option<u32>,
+    max_batch_size: Option<u32>,
     subsystem_id: Option<i64>,
 }
 
@@ -60,6 +61,7 @@ impl Module {
         let mut ft_query_service_url = String::default();
         let mut max_timeout_between_batches = None;
         let mut min_batch_size_to_cancel_timeout = None;
+        let mut max_batch_size = None;
 
         for el in args.iter() {
             if el.starts_with("--ft_query_service_url") {
@@ -75,6 +77,12 @@ impl Module {
                 let p: Vec<&str> = el.split('=').collect();
                 if let Ok(v) = p[1].parse::<u32>() {
                     min_batch_size_to_cancel_timeout = Some(v);
+                    info!("use {} = {}", el, v);
+                }
+            } else if el.starts_with("--max_batch_size") {
+                let p: Vec<&str> = el.split('=').collect();
+                if let Ok(v) = p[1].parse::<u32>() {
+                    max_batch_size = Some(v);
                     info!("use {} = {}", el, v);
                 }
             }
@@ -120,6 +128,7 @@ impl Module {
             is_ready_notify_channel: false,
             max_timeout_between_batches,
             min_batch_size_to_cancel_timeout,
+            max_batch_size,
             subsystem_id: module_id,
         }
     }
@@ -281,6 +290,10 @@ impl Module {
             let size_batch = queue_consumer.get_batch_size();
 
             let mut max_size_batch = size_batch;
+            if let Some(m) = self.max_batch_size {
+                max_size_batch = m;
+            }
+
             if size_batch > 0 {
                 debug!("queue: batch size={}", size_batch);
                 if let Some(new_size) = before_batch(self, module_context, size_batch) {
