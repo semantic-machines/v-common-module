@@ -266,8 +266,8 @@ impl Module {
         module_context: &mut T,
         before_batch: &mut fn(&mut Module, &mut T, batch_size: u32) -> Option<u32>,
         prepare: &mut fn(&mut Module, &mut ModuleInfo, &mut T, &mut Individual, &Consumer) -> Result<bool, PrepareError>,
-        after_batch: &mut fn(&mut Module, &mut ModuleInfo, &mut T, prepared_batch_size: u32) -> bool,
-        heartbeat: &mut fn(&mut Module, module_info: &mut ModuleInfo, &mut T),
+        after_batch: &mut fn(&mut Module, &mut ModuleInfo, &mut T, prepared_batch_size: u32) -> Result<bool, PrepareError>,
+        heartbeat: &mut fn(&mut Module, module_info: &mut ModuleInfo, &mut T) -> Result<(), PrepareError>,
     ) {
         let mut soc = Socket::new(Protocol::Sub0).unwrap();
         let mut count_timeout_error = 0;
@@ -275,7 +275,16 @@ impl Module {
         let mut prev_batch_time = Instant::now();
 
         loop {
-            heartbeat(self, module_info, module_context);
+            match heartbeat(self, module_info, module_context) {
+                Err(e) => {
+                    if let PrepareError::Fatal = e {
+                        warn!("heartbeat: found fatal error, stop listen queue");
+                        //process::exit(e as i32);
+                        return;
+                    }
+                }
+                _ => {}
+            }
 
             if let Some(s) = self.connect_to_notify_channel() {
                 soc = s;
@@ -341,7 +350,7 @@ impl Module {
                         match prepare(self, module_info, module_context, &mut queue_element, queue_consumer) {
                             Err(e) => {
                                 if let PrepareError::Fatal = e {
-                                    warn!("found fatal error, stop listen queue");
+                                    warn!("prepare: found fatal error, stop listen queue");
                                     //process::exit(e as i32);
                                     return;
                                 }
@@ -363,8 +372,20 @@ impl Module {
                 prepared_batch_size += 1;
             }
 
-            if size_batch > 0 && after_batch(self, module_info, module_context, prepared_batch_size) {
-                queue_consumer.commit();
+            if size_batch > 0 {
+                match after_batch(self, module_info, module_context, prepared_batch_size) {
+                    Ok(b) => {
+                        if b {
+                            queue_consumer.commit();
+                        }
+                    }
+                    Err(e) => {
+                        if let PrepareError::Fatal = e {
+                            warn!("after_batch: found fatal error, stop listen queue");
+                            return;
+                        }
+                    }
+                }
             }
 
             if prepared_batch_size == size_batch {
