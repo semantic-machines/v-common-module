@@ -41,7 +41,7 @@ pub struct Module {
     is_ready_notify_channel: bool,
     max_timeout_between_batches: Option<u64>,
     min_batch_size_to_cancel_timeout: Option<u32>,
-    max_batch_size: Option<u32>,
+    pub max_batch_size: Option<u32>,
     subsystem_id: Option<i64>,
 }
 
