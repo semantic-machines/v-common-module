@@ -1,6 +1,6 @@
 use chrono::{NaiveDateTime, Utc};
 use v_api::app::ResultCode;
-use v_onto::individual::Individual;
+use v_api::v_onto::individual::Individual;
 
 #[derive(Debug, Clone)]
 pub struct Ticket {

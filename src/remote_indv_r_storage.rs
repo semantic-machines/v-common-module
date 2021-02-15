@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::str;
 use std::sync::Mutex;
 use uuid::Uuid;
-use v_onto::individual::{Individual, RawObj};
+use v_api::v_onto::individual::{Individual, RawObj};
 use v_storage::remote_storage_client::*;
 use v_storage::storage::*;
 

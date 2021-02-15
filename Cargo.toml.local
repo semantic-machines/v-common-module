@@ -1,6 +1,6 @@
 [package]
 name = "v-common-module"
-version = "0.1.18"
+version = "0.1.17"
 authors = ["itiu <ValeriyBushenev@gmail.com>"]
 edition = "2018"
 description = "common part of the veda platform"
@@ -22,7 +22,6 @@ lazy_static = "1.4"
 
 v_queue = "0.1"
 
-v_api = { package = "v-common-api", version = "0.1.5" }
-v_storage = { package = "v-common-storage", version = "=0.1.7" }
-v_search = { package = "v-common-search", version = "0.1.5" }
-
+v_api = { package = "v-common-api", path = "../v-common-api" }
+v_storage = { package = "v-common-storage", path = "../v-common-storage" }
+v_search = { package = "v-common-search", path = "../v-common-search" }
