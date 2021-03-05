@@ -259,15 +259,39 @@ impl Module {
         None
     }
 
+    pub fn listen_queue_raw<T>(
+        &mut self,
+        queue_consumer: &mut Consumer,
+        module_context: &mut T,
+        before_batch: &mut fn(&mut Module, &mut T, batch_size: u32) -> Option<u32>,
+        prepare: &mut fn(&mut Module, &mut T, &RawObj, &Consumer) -> Result<bool, PrepareError>,
+        after_batch: &mut fn(&mut Module, &mut T, prepared_batch_size: u32) -> Result<bool, PrepareError>,
+        heartbeat: &mut fn(&mut Module, &mut T) -> Result<(), PrepareError>,
+    ) {
+        self.listen_queue_comb(queue_consumer, module_context, before_batch, Some(prepare), None, after_batch, heartbeat)
+    }
+
     pub fn listen_queue<T>(
         &mut self,
         queue_consumer: &mut Consumer,
-        module_info: &mut ModuleInfo,
         module_context: &mut T,
         before_batch: &mut fn(&mut Module, &mut T, batch_size: u32) -> Option<u32>,
-        prepare: &mut fn(&mut Module, &mut ModuleInfo, &mut T, &mut Individual, &Consumer) -> Result<bool, PrepareError>,
-        after_batch: &mut fn(&mut Module, &mut ModuleInfo, &mut T, prepared_batch_size: u32) -> Result<bool, PrepareError>,
-        heartbeat: &mut fn(&mut Module, module_info: &mut ModuleInfo, &mut T) -> Result<(), PrepareError>,
+        prepare: &mut fn(&mut Module, &mut T, &mut Individual, &Consumer) -> Result<bool, PrepareError>,
+        after_batch: &mut fn(&mut Module, &mut T, prepared_batch_size: u32) -> Result<bool, PrepareError>,
+        heartbeat: &mut fn(&mut Module, &mut T) -> Result<(), PrepareError>,
+    ) {
+        self.listen_queue_comb(queue_consumer, module_context, before_batch, None, Some(prepare), after_batch, heartbeat)
+    }
+
+    fn listen_queue_comb<T>(
+        &mut self,
+        queue_consumer: &mut Consumer,
+        module_context: &mut T,
+        before_batch: &mut fn(&mut Module, &mut T, batch_size: u32) -> Option<u32>,
+        prepare_raw: Option<&mut fn(&mut Module, &mut T, &RawObj, &Consumer) -> Result<bool, PrepareError>>,
+        prepare_indv: Option<&mut fn(&mut Module, &mut T, &mut Individual, &Consumer) -> Result<bool, PrepareError>>,
+        after_batch: &mut fn(&mut Module, &mut T, prepared_batch_size: u32) -> Result<bool, PrepareError>,
+        heartbeat: &mut fn(&mut Module, &mut T) -> Result<(), PrepareError>,
     ) {
         let mut soc = Socket::new(Protocol::Sub0).unwrap();
         let mut count_timeout_error = 0;
@@ -275,7 +299,7 @@ impl Module {
         let mut prev_batch_time = Instant::now();
 
         loop {
-            match heartbeat(self, module_info, module_context) {
+            match heartbeat(self, module_context) {
                 Err(e) => {
                     if let PrepareError::Fatal = e {
                         warn!("heartbeat: found fatal error, stop listen queue");
@@ -331,32 +355,47 @@ impl Module {
 
                 let mut need_commit = true;
 
-                let mut queue_element = Individual::new_raw(raw);
-                if parse_raw(&mut queue_element).is_ok() {
-                    let mut is_processed = true;
-                    if let Some(assigned_subsystems) = queue_element.get_first_integer("assigned_subsystems") {
-                        if assigned_subsystems > 0 {
-                            if let Some(my_subsystem_id) = self.subsystem_id {
-                                if assigned_subsystems & my_subsystem_id == 0 {
-                                    is_processed = false;
-                                }
-                            } else {
-                                is_processed = false;
+                if let Some(&mut f) = prepare_raw {
+                    match f(self, module_context, &raw, queue_consumer) {
+                        Err(e) => {
+                            if let PrepareError::Fatal = e {
+                                warn!("prepare: found fatal error, stop listen queue");
+                                return;
                             }
                         }
+                        Ok(b) => {
+                            need_commit = b;
+                        }
                     }
+                }
 
-                    if is_processed {
-                        match prepare(self, module_info, module_context, &mut queue_element, queue_consumer) {
-                            Err(e) => {
-                                if let PrepareError::Fatal = e {
-                                    warn!("prepare: found fatal error, stop listen queue");
-                                    //process::exit(e as i32);
-                                    return;
+                if let Some(&mut f) = prepare_indv {
+                    let mut queue_element = Individual::new_raw(raw);
+                    if parse_raw(&mut queue_element).is_ok() {
+                        let mut is_processed = true;
+                        if let Some(assigned_subsystems) = queue_element.get_first_integer("assigned_subsystems") {
+                            if assigned_subsystems > 0 {
+                                if let Some(my_subsystem_id) = self.subsystem_id {
+                                    if assigned_subsystems & my_subsystem_id == 0 {
+                                        is_processed = false;
+                                    }
+                                } else {
+                                    is_processed = false;
                                 }
                             }
-                            Ok(b) => {
-                                need_commit = b;
+                        }
+
+                        if is_processed {
+                            match f(self, module_context, &mut queue_element, queue_consumer) {
+                                Err(e) => {
+                                    if let PrepareError::Fatal = e {
+                                        warn!("prepare: found fatal error, stop listen queue");
+                                        return;
+                                    }
+                                }
+                                Ok(b) => {
+                                    need_commit = b;
+                                }
                             }
                         }
                     }
@@ -373,7 +412,7 @@ impl Module {
             }
 
             if size_batch > 0 {
-                match after_batch(self, module_info, module_context, prepared_batch_size) {
+                match after_batch(self, module_context, prepared_batch_size) {
                     Ok(b) => {
                         if b {
                             queue_consumer.commit();
