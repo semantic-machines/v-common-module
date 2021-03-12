@@ -39,6 +39,7 @@ pub struct Module {
     queue_prepared_count: i64,
     notify_channel_url: String,
     is_ready_notify_channel: bool,
+    notify_channel_read_timeout: Option<u64>,
     max_timeout_between_batches: Option<u64>,
     min_batch_size_to_cancel_timeout: Option<u32>,
     pub max_batch_size: Option<u32>,
@@ -59,9 +60,11 @@ impl Module {
         let section = conf.section(None::<String>).expect("fail parse veda.properties");
 
         let mut ft_query_service_url = String::default();
+        let mut notify_channel_url = String::default();
         let mut max_timeout_between_batches = None;
         let mut min_batch_size_to_cancel_timeout = None;
         let mut max_batch_size = None;
+        let mut notify_channel_read_timeout = None;
 
         for el in args.iter() {
             if el.starts_with("--ft_query_service_url") {
@@ -85,6 +88,15 @@ impl Module {
                     max_batch_size = Some(v);
                     info!("use {} = {}", el, v);
                 }
+            } else if el.starts_with("--notify_channel_read_timeout") {
+                let p: Vec<&str> = el.split('=').collect();
+                if let Ok(v) = p[1].parse::<u64>() {
+                    notify_channel_read_timeout = Some(v);
+                    info!("use {} = {}", el, v);
+                }
+            } else if el.starts_with("--notify_channel_url") {
+                let p: Vec<&str> = el.split('=').collect();
+                notify_channel_url = p[1].to_owned();
             }
         }
 
@@ -94,11 +106,11 @@ impl Module {
 
         info!("use ft_query_service_url={}", ft_query_service_url);
 
-        let notify_channel_url = if let Some(s) = section.get("notify_channel_url") {
-            s.to_owned()
-        } else {
-            String::default()
-        };
+        if notify_channel_url.is_empty() {
+            if let Some(s) = section.get("notify_channel_url") {
+                notify_channel_url = s.to_owned()
+            }
+        }
 
         let storage: VStorage;
 
@@ -130,6 +142,7 @@ impl Module {
             min_batch_size_to_cancel_timeout,
             max_batch_size,
             subsystem_id: module_id,
+            notify_channel_read_timeout,
         }
     }
 
@@ -234,7 +247,14 @@ impl Module {
     fn connect_to_notify_channel(&mut self) -> Option<Socket> {
         if !self.is_ready_notify_channel && !self.notify_channel_url.is_empty() {
             let soc = Socket::new(Protocol::Sub0).unwrap();
-            if let Err(e) = soc.set_opt::<RecvTimeout>(Some(Duration::from_secs(30))) {
+
+            let timeout = if let Some(t) = self.notify_channel_read_timeout {
+                t
+            } else {
+                30000
+            };
+
+            if let Err(e) = soc.set_opt::<RecvTimeout>(Some(Duration::from_millis(timeout))) {
                 error!("fail set timeout, {} err={}", self.notify_channel_url, e);
                 return None;
             }
